@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Dynasty Central</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:#F5F5F0;color:#111;min-height:100vh}
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-thumb{background:#ddd;border-radius:3px}
+.fade-up{animation:fadeUp .3s ease both}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.game-card{transition:box-shadow .18s,transform .18s}
+.game-card:hover{box-shadow:0 6px 28px rgba(0,0,0,.10);transform:translateY(-2px)}
+.row-hover:hover{background:#FAFAF5!important}
+.rank-row:hover{background:#F7F6F1!important}
+.conf-pill{transition:all .15s;cursor:pointer}
+.tab-btn{transition:color .15s,border-color .15s}
+.save-btn{transition:background .15s,transform .1s}
+.save-btn:hover{background:#A80E1C!important;transform:translateY(-1px)}
+input,select{outline:none;font-family:'DM Sans',sans-serif}
+.admin-input:focus{border-color:#CC1122!important}
+.spinner{width:40px;height:40px;border:3px solid #eee;border-top-color:#CC1122;border-radius:50%;animation:spin .7s linear infinite;margin:60px auto}
+@keyframes spin{to{transform:rotate(360deg)}}
+header{background:#1A1A1A;border-bottom:1px solid #2E2E2E;position:sticky;top:0;z-index:50}
+.nav-inner{max-width:1080px;margin:0 auto;padding:0 20px}
+.page{max-width:1080px;margin:0 auto;padding:28px 20px}
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:100;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.modal{background:#fff;border-radius:16px;padding:36px;width:340px;box-shadow:0 20px 60px rgba(0,0,0,.18)}
+.toast{position:fixed;bottom:24px;right:24px;background:#111;color:#fff;padding:12px 22px;border-radius:10px;font-weight:600;z-index:200;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.15)}
+.section-title{font-family:'Syne',sans-serif;font-size:24px;font-weight:800;margin-bottom:20px}
+.card{background:#fff;border:1px solid #E8E6E0;border-radius:14px;overflow:hidden}
+.table-header{display:grid;padding:12px 20px;background:#CC1122}
+.table-header span{font-size:11px;color:rgba(255,255,255,.85);font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.table-row{padding:13px 20px;border-bottom:1px solid #E8E6E0}
+.pill{background:#F0EFE9;border-radius:20px;padding:7px 16px;font-size:13px;font-weight:600;border:1.5px solid #D0CEC8;color:#555;cursor:pointer;transition:all .15s}
+.pill.active{background:#CC1122;border-color:#CC1122;color:#fff}
+.btn-primary{background:#CC1122;color:#fff;border:none;padding:10px 24px;border-radius:8px;cursor:pointer;font-weight:700;font-size:14px;font-family:'DM Sans',sans-serif;transition:background .15s}
+.btn-primary:hover{background:#A80E1C}
+.btn-ghost{background:#F0EFE9;border:1px solid #D0CEC8;color:#555;padding:10px 18px;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;font-family:'DM Sans',sans-serif}
+.field-label{font-size:10px;color:#999;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.input{background:#fff;border:1.5px solid #E8E6E0;color:#111;padding:7px 10px;border-radius:6px;font-size:13px;transition:border-color .15s}
+.csv-bar{display:flex;align-items:center;gap:10px;background:#F7F6F1;border:1px solid #E8E6E0;border-radius:10px;padding:12px 16px;margin-bottom:18px;flex-wrap:wrap}
+.csv-hint{font-size:12px;color:#999;flex:1;min-width:160px}
+</style>
+</head>
+<body>
+
+<div id="root"></div>
+
+<script>
+const SUPABASE_URL = 'https://rlczrvedpozfgpydsbet.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_02HRrJ6OpI032vRCQOvYsQ_E5oTwHQ4';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const ADMIN_PASSWORD = 'dynasty2026';
+const CONFERENCES = ['Big Ten','SEC','Big 12','Pac-12','ACC','Independent'];
+
+const DEFAULT_DATA = {
+  week: 2, season: 2029,
+  cfpRankings: [
+    {rank:1,team:'Georgia',record:'0-0',conf:'Pac-12'},{rank:2,team:'Missouri',record:'1-0',conf:'SEC'},
+    {rank:3,team:'Texas Tech',record:'1-0',conf:'Big 12'},{rank:4,team:'Kentucky',record:'1-0',conf:'SEC'},
+    {rank:5,team:'Ohio State',record:'1-0',conf:'Big Ten'},{rank:6,team:'Colorado',record:'1-0',conf:'Big 12'},
+    {rank:7,team:'Notre Dame',record:'1-0',conf:'Independent'},{rank:8,team:'Oklahoma State',record:'1-0',conf:'Big 12'},
+    {rank:9,team:'LSU',record:'0-0',conf:'SEC'},{rank:10,team:'Louisville',record:'0-0',conf:'ACC'},
+    {rank:11,team:'Maryland',record:'2-0',conf:'Big Ten'},{rank:12,team:'Wisconsin',record:'0-0',conf:'Big Ten'},
+    {rank:13,team:'SMU',record:'2-0',conf:'ACC'},{rank:14,team:'Oregon',record:'1-0',conf:'—'},
+    {rank:15,team:'BYU',record:'1-0',conf:'Pac-12'},{rank:16,team:'Rice',record:'1-1',conf:'Big 12'},
+    {rank:17,team:'Miami',record:'0-1',conf:'—'},{rank:18,team:'UNC',record:'1-0',conf:'ACC'},
+    {rank:19,team:'Washington State',record:'1-0',conf:'Pac-12'},{rank:20,team:'Arizona State',record:'1-0',conf:'—'},
+    {rank:21,team:'Boston College',record:'2-0',conf:'—'},{rank:22,team:'Auburn',record:'0-0',conf:'—'},
+    {rank:23,team:'Alabama',record:'1-1',conf:'—'},{rank:24,team:'Florida State',record:'0-1',conf:'—'},
+    {rank:25,team:'Nebraska',record:'2-0',conf:'—'}
+  ],
+  conferences: {
+    'Big Ten':{teams:[
+      {name:'Wisconsin',coach:'David Miles',wins:0,losses:0,confWins:0,confLosses:0},
+      {name:'Maryland',coach:'Jason Osborne (Oz)',wins:0,losses:0,confWins:0,confLosses:0},
+      {name:'Ohio State',coach:'Jeff Bell',wins:0,losses:0,confWins:0,confLosses:0}
+    ]},
+    'SEC':{teams:[
+      {name:'Kentucky',coach:'Dan Williams',wins:0,losses:0,confWins:0,confLosses:0},
+      {name:'Missouri',coach:'Logan Love',wins:0,losses:0,confWins:0,confLosses:0},
+      {name:'LSU',coach:'Justin Bigby',wins:0,losses:0,confWins:0,confLosses:0}
+    ]},
+    'Big 12':{teams:[
+      {name:'Texas Tech',coach:'Brenner Clemons',wins:0,losses:0,confWins:0,confLosses:0},
+      {name:'Oklahoma State',coach:'Brandon Williams',wins:0,losses:0,confWins:0,confLosses:0},
+      {name:'USF',coach:'Kevin Jenkins',wins:0,losses:0,confWins:0,confLosses:0},
+      {name:'Colorado',coach:'Niko Barber',wins:0,losses:0,confWins:0,confLosses:0},
+      {name:'Rice',coach:'Carson Key',wins:0,losses:0,confWins:0,confLosses:0}
+    ]},
+    'Pac-12':{teams:[
+      {name:'Iowa State',coach:'Kyle Taylor',wins:0,losses:0,confWins:0,confLosses:0},
+      {name:'BYU',coach:'Peyton Lepere',wins:0,losses:0,confWins:0,confLosses:0},
+      {name:'Washington State',coach:'Chai Colon',wins:0,losses:0,confWins:0,confLosses:0},
+      {name:'Georgia',coach:'Payton Girod',wins:0,losses:0,confWins:0,confLosses:0}
+    ]},
+    'ACC':{teams:[
+      {name:'UNC',coach:'Kerry Thomas',wins:0,losses:0,confWins:0,confLosses:0},
+      {name:'SMU',coach:'Khol Saint Louis',wins:0,losses:0,confWins:0,confLosses:0},
+      {name:'Louisville',coach:'Kunal Tanna',wins:0,losses:0,confWins:0,confLosses:0}
+    ]},
+    'Independent':{teams:[
+      {name:'Notre Dame',coach:'Jared Forest',wins:0,losses:0,confWins:0,confLosses:0}
+    ]}
+  },
+  weeklyGames: [
+    {id:1,away:'Louisville',awayCoach:'Kunal',home:'LSU',homeCoach:'Justin',spread:'LSU -12.5',overUnder:'',homeScore:null,awayScore:null,time:'TBD'},
+    {id:2,away:'SMU',awayCoach:'Khol',home:'Rice',homeCoach:'Carson',spread:'SMU -10.5',overUnder:'',homeScore:null,awayScore:null,time:'TBD'},
+    {id:3,away:'Ohio State',awayCoach:'Jeff',home:'Texas Tech',homeCoach:'Brenner',spread:'Tech -6.5',overUnder:'',homeScore:null,awayScore:null,time:'TBD'},
+    {id:4,away:'USF',awayCoach:'Kevin',home:'Oklahoma State',homeCoach:'Brandon',spread:'USF -9.5',overUnder:'',homeScore:null,awayScore:null,time:'TBD'},
+    {id:5,away:'Wisconsin',awayCoach:'David',home:'Kentucky',homeCoach:'Dan',spread:'Kentucky -13.5',overUnder:'',homeScore:null,awayScore:null,time:'TBD'},
+    {id:6,away:'BYU',awayCoach:'Lepere',home:'Georgia',homeCoach:'Girod',spread:'BYU -10.5',overUnder:'',homeScore:null,awayScore:null,time:'TBD'}
+  ],
+  schedules:{}
+};
+
+// ── State ─────────────────────────────────────────────────────────
+let state = {
+  activeTab:'scoreboard', isAdmin:false, showLogin:false, loading:true,
+  activeConf:'Big Ten', adminSection:'games', scheduleTeam:'',
+  pwInput:'', pwError:false, toast:'', toastTimer:null,
+  editGames:[], editRankings:[], editStandings:{}, editWeek:2, editSeason:2029,
+  newGame:{away:'',awayCoach:'',home:'',homeCoach:'',spread:'',overUnder:'',time:'TBD'},
+  data: JSON.parse(JSON.stringify(DEFAULT_DATA))
+};
+
+function setState(updates){ Object.assign(state, updates); render(); }
+function showToast(msg){ if(state.toastTimer) clearTimeout(state.toastTimer); const t=setTimeout(()=>setState({toast:'',toastTimer:null}),2500); setState({toast:msg,toastTimer:t}); }
+
+// ── Supabase ──────────────────────────────────────────────────────
+async function loadFromDB(){
+  setState({loading:true});
+  try {
+    const {data:rows,error} = await sb.from('dynasty_data').select('id,data');
+    if(error || !rows || rows.length===0){ await seedDB(); return; }
+    const map = {};
+    rows.forEach(r=>{ try{ map[r.id]=typeof r.data==='string'?JSON.parse(r.data):r.data; }catch{map[r.id]=r.data;} });
+    const d = JSON.parse(JSON.stringify(DEFAULT_DATA));
+    if(map.week) d.week = Number(map.week);
+    if(map.season) d.season = Number(map.season);
+    if(map.games && Array.isArray(map.games) && map.games.length>0) d.weeklyGames = map.games;
+    if(map.rankings && Array.isArray(map.rankings) && map.rankings.length>0) d.cfpRankings = map.rankings;
+    if(map.standings && Object.keys(map.standings).length>0) d.conferences = map.standings;
+    if(map.schedules) d.schedules = map.schedules;
+    setState({data:d, loading:false});
+  } catch(e){ console.error(e); setState({loading:false}); }
+}
+
+async function seedDB(){
+  const d = DEFAULT_DATA;
+  await sb.from('dynasty_data').upsert([
+    {id:'week',data:d.week},{id:'season',data:d.season},
+    {id:'games',data:d.weeklyGames},{id:'rankings',data:d.cfpRankings},
+    {id:'standings',data:d.conferences},{id:'schedules',data:d.schedules}
+  ]);
+  setState({data:JSON.parse(JSON.stringify(d)), loading:false});
+}
+
+async function saveToDB(key, value){
+  const {error} = await sb.from('dynasty_data').upsert({id:key, data:value, updated_at:new Date().toISOString()});
+  if(error) console.error('Save error:', error);
+}
+
+// ── CSV helpers ───────────────────────────────────────────────────
+function parseCSV(text){
+  const [headerLine,...rows] = text.trim().split('\n').filter(r=>r.trim());
+  const headers = headerLine.split(',').map(h=>h.trim().toLowerCase().replace(/\s+/g,'_'));
+  return rows.map(row=>{ const vals=row.split(',').map(v=>v.trim()); return Object.fromEntries(headers.map((h,i)=>[h,vals[i]??''])); });
+}
+function downloadCSV(filename,rows,headers){
+  const lines=[headers.join(','),...rows.map(r=>headers.map(h=>r[h]??'').join(','))];
+  const a=document.createElement('a'); a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(lines.join('\n')); a.download=filename; a.click();
+}
+
+// ── Render helpers ────────────────────────────────────────────────
+const C={bg:'#F5F5F0',surface:'#FFFFFF',surfaceAlt:'#FAFAF8',border:'#E8E6E0',borderStrong:'#D0CEC8',text:'#111111',textMid:'#555550',textLight:'#999990',accent:'#CC1122',accentLight:'#FFF0F1',accentMid:'#FFD6D9',green:'#1A7A3C',pill:'#F0EFE9'};
+
+function el(tag,attrs,...children){
+  const e=document.createElement(tag);
+  if(attrs) Object.entries(attrs).forEach(([k,v])=>{ if(k==='style'&&typeof v==='object') Object.assign(e.style,v); else if(k.startsWith('on')&&typeof v==='function') e.addEventListener(k.slice(2).toLowerCase(),v); else if(k==='className') e.className=v; else if(k==='htmlFor') e.htmlFor=v; else e.setAttribute(k,v); });
+  children.flat().forEach(c=>{ if(c==null||c===false) return; e.appendChild(typeof c==='string'?document.createTextNode(c):c); });
+  return e;
+}
+
+function csvBar(hint, onDownload, onUpload){
+  const label = el('label',{className:'btn-primary',style:{fontSize:12,padding:'6px 14px',borderRadius:7,cursor:'pointer'}}, '⬆ Upload CSV');
+  const input = el('input',{type:'file',accept:'.csv',style:{display:'none'}});
+  input.addEventListener('change', e=>{ const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=ev=>{ try{onUpload(parseCSV(ev.target.result));}catch{showToast('CSV parse error');} }; r.readAsText(f); e.target.value=''; });
+  label.appendChild(input);
+  return el('div',{className:'csv-bar'},
+    el('span',{className:'csv-hint'},hint),
+    el('button',{className:'btn-ghost',style:{fontSize:12,padding:'6px 14px',borderRadius:7},onclick:onDownload},'⬇ Template'),
+    label
+  );
+}
+
+// ── Main render ───────────────────────────────────────────────────
+function render(){
+  const root = document.getElementById('root');
+  root.innerHTML='';
+  root.appendChild(renderApp());
+}
+
+function renderApp(){
+  const {data,activeTab,isAdmin,loading,toast,showLogin} = state;
+  const tabs=[{id:'scoreboard',label:'This Week'},{id:'standings',label:'Standings'},{id:'rankings',label:'CFP Top 25'},{id:'schedules',label:'Schedules'}];
+  if(isAdmin) tabs.push({id:'admin',label:'⚙ Edit'});
+
+  const wrap = el('div',{});
+
+  // Header
+  const header = el('header',{});
+  const navInner = el('div',{className:'nav-inner'});
+  const topBar = el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'14px 0 0'}});
+
+  const brand = el('div',{style:{display:'flex',alignItems:'center',gap:10}},
+    el('div',{style:{width:36,height:36,background:'#CC1122',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}},'🏈'),
+    el('div',{},
+      el('div',{style:{fontFamily:"'Syne',sans-serif",fontSize:20,fontWeight:800,letterSpacing:1,color:'#fff',lineHeight:1}},'DYNASTY CENTRAL'),
+      el('div',{style:{fontSize:10,color:'rgba(255,255,255,.45)',letterSpacing:1.5,fontWeight:500,textTransform:'uppercase'}},'CFB 26 · Online Dynasty')
+    )
+  );
+
+  const weekInfo = el('div',{style:{textAlign:'right'}},
+    el('div',{style:{fontSize:10,color:'rgba(255,255,255,.45)',letterSpacing:1,textTransform:'uppercase'}},`Season ${data.season}`),
+    el('div',{style:{fontFamily:"'Syne',sans-serif",fontSize:17,fontWeight:700,color:'#fff'}},`Week ${data.week}`)
+  );
+
+  const adminBtn = isAdmin
+    ? el('button',{style:{background:'rgba(204,17,34,.25)',border:'1px solid #CC1122',color:'#FF6674',padding:'6px 14px',borderRadius:20,cursor:'pointer',fontSize:12,fontWeight:600},onclick:()=>setState({isAdmin:false,activeTab:'scoreboard'})},'Exit Admin')
+    : el('button',{style:{background:'rgba(255,255,255,.1)',border:'1px solid rgba(255,255,255,.2)',color:'rgba(255,255,255,.8)',padding:'6px 14px',borderRadius:20,cursor:'pointer',fontSize:12,fontWeight:600},onclick:()=>setState({showLogin:true})},'Admin');
+
+  topBar.append(brand, el('div',{style:{display:'flex',alignItems:'center',gap:12}},weekInfo,adminBtn));
+
+  const tabBar = el('div',{style:{display:'flex',marginTop:12}});
+  tabs.forEach(t=>{
+    const btn = el('button',{
+      className:'tab-btn',
+      style:{background:'none',border:'none',color:activeTab===t.id?'#fff':'rgba(255,255,255,.45)',padding:'10px 18px',fontSize:13,fontWeight:600,borderBottom:activeTab===t.id?'2px solid #CC1122':'2px solid transparent',cursor:'pointer',fontFamily:"'DM Sans',sans-serif"},
+      onclick:()=>setState({activeTab:t.id})
+    },t.label);
+    tabBar.appendChild(btn);
+  });
+
+  navInner.append(topBar,tabBar);
+  header.appendChild(navInner);
+  wrap.appendChild(header);
+
+  // Loading
+  if(loading){ wrap.appendChild(el('div',{style:{textAlign:'center',paddingTop:60}},el('div',{className:'spinner'}))); return wrap; }
+
+  // Page content
+  const page = el('div',{className:'page fade-up'});
+  if(activeTab==='scoreboard') page.appendChild(renderScoreboard());
+  else if(activeTab==='standings') page.appendChild(renderStandings());
+  else if(activeTab==='rankings') page.appendChild(renderRankings());
+  else if(activeTab==='schedules') page.appendChild(renderSchedules());
+  else if(activeTab==='admin'&&isAdmin) page.appendChild(renderAdmin());
+  wrap.appendChild(page);
+
+  // Login modal
+  if(showLogin) wrap.appendChild(renderLoginModal());
+
+  // Toast
+  if(toast) wrap.appendChild(el('div',{className:'toast'},toast));
+
+  return wrap;
+}
+
+// ── Scoreboard ────────────────────────────────────────────────────
+function renderScoreboard(){
+  const {data} = state;
+  const frag = el('div',{});
+  frag.appendChild(el('h1',{className:'section-title'},`Week ${data.week} Matchups`));
+  const grid = el('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(290px,1fr))',gap:14}});
+  data.weeklyGames.forEach((game,idx)=>{
+    const finished = game.homeScore!==null && game.awayScore!==null;
+    const awayWin = finished && game.awayScore > game.homeScore;
+    const homeWin = finished && game.homeScore > game.awayScore;
+    const card = el('div',{className:'game-card card',style:{animationDelay:`${idx*.05}s`}});
+    const cardHead = el('div',{style:{background:finished?C.accentLight:'#FAFAF8',borderBottom:`1px solid ${C.border}`,padding:'9px 16px',display:'flex',justifyContent:'space-between',alignItems:'center'}},
+      el('span',{style:{fontSize:11,color:C.textLight,fontWeight:500}},game.time),
+      el('span',{style:{fontSize:11,fontWeight:700,color:finished?C.accent:C.green,letterSpacing:.5,textTransform:'uppercase'}},finished?'Final':'Upcoming')
+    );
+    const body = el('div',{style:{padding:'16px'}});
+    const awayRow = el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 10px',borderRadius:8,background:awayWin?C.accentLight:'transparent',marginBottom:4}},
+      el('div',{},
+        el('div',{style:{fontSize:10,color:C.textLight,fontWeight:500,textTransform:'uppercase',letterSpacing:.8,marginBottom:1}},`Away · ${game.awayCoach}`),
+        el('div',{style:{fontSize:19,fontWeight:700,color:finished&&!awayWin?C.textLight:C.text}},game.away)
+      )
+    );
+    if(finished) awayRow.appendChild(el('div',{style:{fontSize:32,fontWeight:800,fontFamily:"'Syne',sans-serif",color:awayWin?C.accent:C.textLight}},String(game.awayScore)));
+    const divider = el('div',{style:{display:'flex',alignItems:'center',gap:8,padding:'4px 10px'}},
+      el('div',{style:{flex:1,height:1,background:C.border}}),
+      el('span',{style:{fontSize:10,color:C.textLight,fontWeight:600,letterSpacing:1}},'AT'),
+      el('div',{style:{flex:1,height:1,background:C.border}})
+    );
+    const homeRow = el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 10px',borderRadius:8,background:homeWin?C.accentLight:'transparent',marginTop:4,marginBottom:12}},
+      el('div',{},
+        el('div',{style:{fontSize:10,color:C.textLight,fontWeight:500,textTransform:'uppercase',letterSpacing:.8,marginBottom:1}},`Home · ${game.homeCoach}`),
+        el('div',{style:{fontSize:19,fontWeight:700,color:finished&&!homeWin?C.textLight:C.text}},game.home)
+      )
+    );
+    if(finished) homeRow.appendChild(el('div',{style:{fontSize:32,fontWeight:800,fontFamily:"'Syne',sans-serif",color:homeWin?C.accent:C.textLight}},String(game.homeScore)));
+    const odds = el('div',{style:{display:'flex',gap:8,borderTop:`1px solid ${C.border}`,paddingTop:12}});
+    if(game.spread) odds.appendChild(el('div',{style:{flex:1,background:C.pill,borderRadius:8,padding:'8px 12px'}},el('div',{style:{fontSize:9,color:C.textLight,fontWeight:600,letterSpacing:1,textTransform:'uppercase',marginBottom:2}},'Spread'),el('div',{style:{fontSize:13,fontWeight:700,color:C.accent}},game.spread)));
+    if(game.overUnder) odds.appendChild(el('div',{style:{flex:1,background:C.pill,borderRadius:8,padding:'8px 12px'}},el('div',{style:{fontSize:9,color:C.textLight,fontWeight:600,letterSpacing:1,textTransform:'uppercase',marginBottom:2}},'O/U'),el('div',{style:{fontSize:13,fontWeight:700,color:C.accent}},game.overUnder)));
+    body.append(awayRow,divider,homeRow,odds);
+    card.append(cardHead,body);
+    grid.appendChild(card);
+  });
+  if(data.weeklyGames.length===0) grid.appendChild(el('div',{style:{color:C.textLight,padding:'60px 0',textAlign:'center'}},'No games scheduled yet.'));
+  frag.appendChild(grid);
+  return frag;
+}
+
+// ── Standings ─────────────────────────────────────────────────────
+function renderStandings(){
+  const {data,activeConf} = state;
+  const frag = el('div',{});
+  frag.appendChild(el('h1',{className:'section-title'},'Conference Standings'));
+  const pills = el('div',{style:{display:'flex',gap:8,marginBottom:22,flexWrap:'wrap'}});
+  CONFERENCES.forEach(c=>{ const b=el('button',{className:`pill${activeConf===c?' active':''}`,onclick:()=>setState({activeConf:c})},c); pills.appendChild(b); });
+  frag.appendChild(pills);
+  const card = el('div',{className:'card'});
+  const hdr = el('div',{className:'table-header',style:{gridTemplateColumns:'36px 1fr 150px 90px 100px',display:'grid',gap:8}});
+  ['#','Team','Coach','Overall','Conf'].forEach(h=>hdr.appendChild(el('span',{},h)));
+  card.appendChild(hdr);
+  const teams = [...(data.conferences[activeConf]?.teams||[])].sort((a,b)=>(b.confWins-b.confLosses)-(a.confWins-a.confLosses)||(b.wins-b.losses)-(a.wins-a.losses));
+  teams.forEach((team,i)=>{
+    const row = el('div',{className:'table-row row-hover',style:{display:'grid',gridTemplateColumns:'36px 1fr 150px 90px 100px',gap:8,alignItems:'center',background:i===0?'#FFFBFB':'#fff'}});
+    row.append(
+      el('div',{style:{fontSize:13,fontWeight:700,color:i===0?C.accent:C.textLight}},String(i+1)),
+      el('div',{style:{fontSize:15,fontWeight:700}},team.name),
+      el('div',{style:{fontSize:12,color:C.textLight,fontWeight:500}},team.coach),
+      el('div',{style:{fontSize:14,fontWeight:700}},`${team.wins}–${team.losses}`),
+      el('div',{style:{fontSize:14,color:C.textMid}},`${team.confWins}–${team.confLosses}`)
+    );
+    card.appendChild(row);
+  });
+  frag.appendChild(card);
+  return frag;
+}
+
+// ── Rankings ──────────────────────────────────────────────────────
+function renderRankings(){
+  const {data} = state;
+  const frag = el('div',{});
+  const titleRow = el('div',{style:{display:'flex',alignItems:'baseline',gap:10,marginBottom:22}});
+  titleRow.append(el('h1',{className:'section-title',style:{marginBottom:0}},'CFP Top 25'),el('span',{style:{fontSize:13,color:C.textLight}},`Week ${data.week} Rankings`));
+  frag.appendChild(titleRow);
+  const grid = el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}});
+  [data.cfpRankings.slice(0,13),data.cfpRankings.slice(13)].forEach(half=>{
+    const card = el('div',{className:'card'});
+    half.forEach(entry=>{
+      const row = el('div',{className:'rank-row',style:{display:'flex',alignItems:'center',gap:14,padding:'12px 18px',borderBottom:`1px solid ${C.border}`,background:'#fff'}});
+      row.append(
+        el('div',{style:{width:30,textAlign:'center',fontFamily:"'Syne',sans-serif",fontSize:16,fontWeight:800,color:entry.rank<=4?C.accent:entry.rank<=12?'#B07D2A':C.textLight,flexShrink:0}},String(entry.rank)),
+        el('div',{style:{flex:1}},el('div',{style:{fontSize:15,fontWeight:700}},entry.team),el('div',{style:{fontSize:11,color:C.textLight,fontWeight:500,marginTop:1}},entry.conf)),
+        el('div',{style:{fontSize:13,fontWeight:600,color:C.textMid}},entry.record)
+      );
+      card.appendChild(row);
+    });
+    grid.appendChild(card);
+  });
+  frag.appendChild(grid);
+  return frag;
+}
+
+// ── Schedules ─────────────────────────────────────────────────────
+function renderSchedules(){
+  const {data,scheduleTeam} = state;
+  const allTeams = Object.values(data.conferences).flatMap(c=>c.teams.map(t=>t.name)).sort();
+  const frag = el('div',{});
+  frag.appendChild(el('h1',{className:'section-title'},'Team Schedules'));
+  const sel = el('select',{className:'input',style:{padding:'10px 16px',fontSize:14,minWidth:230,cursor:'pointer',marginBottom:20}});
+  sel.appendChild(el('option',{value:''},'Select a team…'));
+  allTeams.forEach(t=>{ const o=el('option',{value:t},t); if(t===scheduleTeam) o.selected=true; sel.appendChild(o); });
+  sel.addEventListener('change',e=>setState({scheduleTeam:e.target.value}));
+  frag.appendChild(sel);
+  if(scheduleTeam && data.schedules[scheduleTeam]){
+    const card = el('div',{className:'card'});
+    const hdr = el('div',{className:'table-header',style:{display:'grid',gridTemplateColumns:'70px 1fr 130px',gap:8}});
+    ['Week','Opponent','Result'].forEach(h=>hdr.appendChild(el('span',{},h)));
+    card.appendChild(hdr);
+    data.schedules[scheduleTeam].forEach(g=>{
+      const row = el('div',{className:'table-row row-hover',style:{display:'grid',gridTemplateColumns:'70px 1fr 130px',gap:8,alignItems:'center',background:'#fff'}});
+      row.append(
+        el('div',{style:{fontSize:14,fontWeight:700,color:g.week===data.week?C.accent:C.textLight}},String(g.week)),
+        el('div',{style:{fontSize:15,fontWeight:600}},g.opponent),
+        el('div',{style:{fontSize:13,fontWeight:700,color:g.result?(g.result.startsWith('W')?C.green:C.accent):C.textLight}},g.result||(g.week===data.week?'Today':'—'))
+      );
+      card.appendChild(row);
+    });
+    frag.appendChild(card);
+  } else if(scheduleTeam){
+    frag.appendChild(el('div',{style:{color:C.textLight,padding:'40px 0'}},`No schedule added for ${scheduleTeam} yet.`));
+  } else {
+    frag.appendChild(el('div',{style:{color:C.textLight,padding:'40px 0'}},'Pick a team above to see their schedule.'));
+  }
+  return frag;
+}
+
+// ── Admin ─────────────────────────────────────────────────────────
+function renderAdmin(){
+  const {adminSection,editGames,editRankings,editStandings,editWeek,editSeason,newGame,activeConf,scheduleTeam,data} = state;
+  const allTeams = Object.values(data.conferences).flatMap(c=>c.teams.map(t=>t.name)).sort();
+  const frag = el('div',{});
+  frag.appendChild(el('h1',{className:'section-title'},'Admin Panel'));
+
+  // Sub-tabs
+  const subTabs = el('div',{style:{display:'flex',gap:4,marginBottom:26,borderBottom:`1px solid ${C.border}`}});
+  ['games','rankings','standings','schedules'].forEach(s=>{
+    subTabs.appendChild(el('button',{style:{background:'none',border:'none',color:adminSection===s?C.accent:C.textMid,padding:'9px 16px',fontSize:13,fontWeight:600,textTransform:'capitalize',borderBottom:adminSection===s?`2px solid ${C.accent}`:'2px solid transparent',cursor:'pointer'},onclick:()=>setState({adminSection:s})},s));
+  });
+  frag.appendChild(subTabs);
+
+  if(adminSection==='games') frag.appendChild(renderAdminGames());
+  else if(adminSection==='rankings') frag.appendChild(renderAdminRankings());
+  else if(adminSection==='standings') frag.appendChild(renderAdminStandings());
+  else if(adminSection==='schedules') frag.appendChild(renderAdminSchedules());
+  return frag;
+}
+
+function inputEl(value, onChange, opts={}){
+  const i = el('input',{className:'admin-input input',style:{width:opts.width||'100%',...(opts.style||{})},type:opts.type||'text',placeholder:opts.placeholder||''});
+  i.value = value ?? '';
+  i.addEventListener('input', e=>onChange(e.target.value));
+  return i;
+}
+function fieldGroup(label, inputElem){ return el('div',{},el('div',{className:'field-label'},label),inputElem); }
+
+function renderAdminGames(){
+  const {editGames,editWeek,editSeason,newGame,data} = state;
+  const frag = el('div',{});
+
+  // CSV bar
+  frag.appendChild(csvBar(
+    'Columns: away, home, away_score, home_score, spread, over_under, time',
+    ()=>downloadCSV('games.csv', editGames.map(g=>({away:g.away,home:g.home,away_score:g.awayScore??'',home_score:g.homeScore??'',spread:g.spread,over_under:g.overUnder,time:g.time})),['away','home','away_score','home_score','spread','over_under','time']),
+    rows=>{
+      const updated = editGames.map(game=>{
+        const m = rows.find(r=>r.away?.toLowerCase()===game.away.toLowerCase()&&r.home?.toLowerCase()===game.home.toLowerCase());
+        if(!m) return game;
+        return {...game, awayScore:m.away_score!==''?Number(m.away_score):game.awayScore, homeScore:m.home_score!==''?Number(m.home_score):game.homeScore, spread:m.spread||game.spread, overUnder:m.over_under||game.overUnder, time:m.time||game.time};
+      });
+      setState({editGames:updated}); showToast('Scores updated — hit Save!');
+    }
+  ));
+
+  // Week/Season
+  const weekRow = el('div',{style:{display:'flex',gap:20,marginBottom:20,alignItems:'flex-end'}});
+  weekRow.appendChild(fieldGroup('Current Week', inputEl(editWeek, v=>setState({editWeek:Number(v)}), {width:80,type:'number'})));
+  weekRow.appendChild(fieldGroup('Season', inputEl(editSeason, v=>setState({editSeason:Number(v)}), {width:100,type:'number'})));
+  frag.appendChild(weekRow);
+
+  // Add game
+  const addBox = el('div',{style:{background:'#FAFAF8',border:`1px solid ${C.border}`,borderRadius:12,padding:18,marginBottom:20}});
+  addBox.appendChild(el('div',{style:{fontWeight:700,fontSize:13,marginBottom:14,color:C.textMid}},'Add New Game'));
+  const fields = el('div',{style:{display:'flex',gap:8,flexWrap:'wrap',alignItems:'flex-end'}});
+  [['Away Team','away',140],['Away Coach','awayCoach',110],['Home Team','home',140],['Home Coach','homeCoach',110],['Spread','spread',160],['O/U','overUnder',80],['Time','time',120]].forEach(([label,field,w])=>{
+    fields.appendChild(fieldGroup(label, inputEl(newGame[field], v=>{ state.newGame={...state.newGame,[field]:v}; }, {width:w,placeholder:label})));
+  });
+  const addBtn = el('button',{className:'btn-primary',style:{alignSelf:'flex-end'},onclick:()=>{
+    if(!state.newGame.home||!state.newGame.away) return;
+    setState({editGames:[...state.editGames,{...state.newGame,id:Date.now(),homeScore:null,awayScore:null}],newGame:{away:'',awayCoach:'',home:'',homeCoach:'',spread:'',overUnder:'',time:'TBD'}});
+  }},'Add');
+  fields.appendChild(addBtn);
+  addBox.appendChild(fields);
+  frag.appendChild(addBox);
+
+  // Game cards
+  editGames.forEach((game,i)=>{
+    const card = el('div',{style:{background:'#fff',border:`1px solid ${C.border}`,borderRadius:12,padding:16,marginBottom:12}});
+    const cardHead = el('div',{style:{display:'flex',justifyContent:'space-between',marginBottom:12}});
+    cardHead.append(
+      el('div',{style:{fontWeight:700,fontSize:14}},`${game.away} @ ${game.home}`),
+      el('button',{style:{background:C.accentLight,border:`1px solid ${C.accentMid}`,color:C.accent,padding:'4px 12px',borderRadius:6,cursor:'pointer',fontSize:12,fontWeight:600},onclick:()=>setState({editGames:state.editGames.filter((_,j)=>j!==i)})},'Remove')
+    );
+    card.appendChild(cardHead);
+    const row = el('div',{style:{display:'flex',gap:8,flexWrap:'wrap'}});
+    [['Away Score','awayScore',80,'number'],['Home Score','homeScore',80,'number'],['Spread','spread',160,'text'],['O/U','overUnder',80,'text'],['Time','time',120,'text']].forEach(([label,field,w,type])=>{
+      row.appendChild(fieldGroup(label, inputEl(game[field]??'', v=>{ const g=[...state.editGames]; g[i]={...g[i],[field]:type==='number'?(v===''?null:Number(v)):v}; setState({editGames:g}); }, {width:w,type,placeholder:'—'})));
+    });
+    card.appendChild(row);
+    frag.appendChild(card);
+  });
+
+  const saveBtn = el('button',{className:'btn-primary save-btn',style:{marginTop:8},onclick:async()=>{
+    const d={...state.data,weeklyGames:state.editGames,week:state.editWeek,season:state.editSeason};
+    await saveToDB('games',state.editGames); await saveToDB('week',state.editWeek); await saveToDB('season',state.editSeason);
+    setState({data:d}); showToast('Games saved!');
+  }},'Save All Games');
+  frag.appendChild(saveBtn);
+  return frag;
+}
+
+function renderAdminRankings(){
+  const {editRankings} = state;
+  const frag = el('div',{});
+  frag.appendChild(csvBar(
+    'Columns: rank, team, record, conf — replaces all 25',
+    ()=>downloadCSV('rankings.csv',editRankings,['rank','team','record','conf']),
+    rows=>{ setState({editRankings:rows.map(r=>({rank:Number(r.rank),team:r.team,record:r.record,conf:r.conf})).filter(r=>r.rank&&r.team)}); showToast('Rankings loaded — hit Save!'); }
+  ));
+  const card = el('div',{className:'card',style:{marginBottom:16}});
+  editRankings.forEach((entry,i)=>{
+    const row = el('div',{style:{display:'flex',alignItems:'center',gap:10,padding:'10px 16px',borderBottom:`1px solid ${C.border}`}});
+    row.append(
+      el('div',{style:{width:28,fontSize:15,fontWeight:800,fontFamily:"'Syne',sans-serif",color:entry.rank<=4?C.accent:C.textLight,flexShrink:0}},String(entry.rank)),
+      inputEl(entry.team, v=>{ const r=[...state.editRankings]; r[i]={...r[i],team:v}; setState({editRankings:r}); }, {style:{flex:2}}),
+      inputEl(entry.record, v=>{ const r=[...state.editRankings]; r[i]={...r[i],record:v}; setState({editRankings:r}); }, {width:80,placeholder:'0-0'}),
+      inputEl(entry.conf, v=>{ const r=[...state.editRankings]; r[i]={...r[i],conf:v}; setState({editRankings:r}); }, {width:110,placeholder:'Conf'})
+    );
+    card.appendChild(row);
+  });
+  frag.appendChild(card);
+  frag.appendChild(el('button',{className:'btn-primary save-btn',onclick:async()=>{ await saveToDB('rankings',state.editRankings); setState({data:{...state.data,cfpRankings:state.editRankings}}); showToast('Rankings saved!'); }},'Save Rankings'));
+  return frag;
+}
+
+function renderAdminStandings(){
+  const {editStandings,activeConf} = state;
+  const frag = el('div',{});
+  frag.appendChild(csvBar(
+    'Columns: conf, team, wins, losses, conf_wins, conf_losses',
+    ()=>{ const rows=Object.entries(editStandings).flatMap(([conf,c])=>c.teams.map(t=>({conf,team:t.name,wins:t.wins,losses:t.losses,conf_wins:t.confWins,conf_losses:t.confLosses}))); downloadCSV('standings.csv',rows,['conf','team','wins','losses','conf_wins','conf_losses']); },
+    rows=>{
+      const next=JSON.parse(JSON.stringify(state.editStandings));
+      rows.forEach(r=>{ Object.values(next).forEach(c=>{ const t=c.teams.find(t=>t.name.toLowerCase()===r.team?.toLowerCase()); if(!t)return; if(r.wins!=='')t.wins=Number(r.wins); if(r.losses!=='')t.losses=Number(r.losses); if(r.conf_wins!=='')t.confWins=Number(r.conf_wins); if(r.conf_losses!=='')t.confLosses=Number(r.conf_losses); }); });
+      setState({editStandings:next}); showToast('Standings updated — hit Save!');
+    }
+  ));
+  const pills = el('div',{style:{display:'flex',gap:8,marginBottom:20,flexWrap:'wrap'}});
+  CONFERENCES.forEach(c=>pills.appendChild(el('button',{className:`pill${activeConf===c?' active':''}`,onclick:()=>setState({activeConf:c})},c)));
+  frag.appendChild(pills);
+  const card = el('div',{className:'card',style:{marginBottom:16}});
+  const hdr = el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr 60px 60px 70px 70px',gap:8,padding:'10px 16px',background:C.accent}});
+  ['Team','Coach','W','L','CW','CL'].forEach(h=>hdr.appendChild(el('span',{style:{fontSize:11,color:'rgba(255,255,255,.85)',fontWeight:700}},h)));
+  card.appendChild(hdr);
+  (editStandings[activeConf]?.teams||[]).forEach((team,i)=>{
+    const row = el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr 60px 60px 70px 70px',gap:8,padding:'8px 16px',borderBottom:`1px solid ${C.border}`,alignItems:'center'}});
+    row.appendChild(inputEl(team.name, v=>{ const s=JSON.parse(JSON.stringify(state.editStandings)); s[activeConf].teams[i].name=v; setState({editStandings:s}); }));
+    row.appendChild(inputEl(team.coach||'', v=>{ const s=JSON.parse(JSON.stringify(state.editStandings)); s[activeConf].teams[i].coach=v; setState({editStandings:s}); }));
+    ['wins','losses','confWins','confLosses'].forEach(field=>{
+      row.appendChild(inputEl(team[field], v=>{ const s=JSON.parse(JSON.stringify(state.editStandings)); s[activeConf].teams[i][field]=Number(v); setState({editStandings:s}); }, {width:60,type:'number'}));
+    });
+    card.appendChild(row);
+  });
+  frag.appendChild(card);
+  frag.appendChild(el('button',{className:'btn-primary save-btn',onclick:async()=>{ await saveToDB('standings',state.editStandings); setState({data:{...state.data,conferences:state.editStandings}}); showToast('Standings saved!'); }},'Save Standings'));
+  return frag;
+}
+
+function renderAdminSchedules(){
+  const {data,scheduleTeam} = state;
+  const allTeams = Object.values(data.conferences).flatMap(c=>c.teams.map(t=>t.name)).sort();
+  const frag = el('div',{});
+  frag.appendChild(csvBar(
+    'Columns: team, week, opponent, result',
+    ()=>{ const rows=Object.entries(data.schedules).flatMap(([team,weeks])=>weeks.map(g=>({team,week:g.week,opponent:g.opponent,result:g.result||''}))); downloadCSV('schedules.csv',rows,['team','week','opponent','result']); },
+    rows=>{
+      const next={...data.schedules};
+      rows.forEach(r=>{ if(!r.team||!r.week)return; const team=Object.keys(next).find(t=>t.toLowerCase()===r.team.toLowerCase())||r.team; if(!next[team])next[team]=[]; const ex=next[team].find(g=>String(g.week)===String(r.week)); if(ex){if(r.opponent)ex.opponent=r.opponent;if(r.result)ex.result=r.result;}else next[team].push({week:Number(r.week),opponent:r.opponent,result:r.result||null}); next[team].sort((a,b)=>a.week-b.week); });
+      const newData={...data,schedules:next}; saveToDB('schedules',next); setState({data:newData}); showToast('Schedules updated!');
+    }
+  ));
+  const sel = el('select',{className:'input',style:{padding:'10px 16px',fontSize:14,minWidth:230,cursor:'pointer',marginBottom:16}});
+  sel.appendChild(el('option',{value:''},'Select a team…'));
+  allTeams.forEach(t=>{ const o=el('option',{value:t},t); if(t===scheduleTeam)o.selected=true; sel.appendChild(o); });
+  sel.addEventListener('change',e=>setState({scheduleTeam:e.target.value}));
+  frag.appendChild(sel);
+  if(scheduleTeam){
+    const card = el('div',{className:'card',style:{marginBottom:16}});
+    const hdr = el('div',{style:{display:'grid',gridTemplateColumns:'60px 1fr 150px 60px',gap:8,padding:'10px 16px',background:C.accent}});
+    ['Wk','Opponent','Result',''].forEach(h=>hdr.appendChild(el('span',{style:{fontSize:11,color:'rgba(255,255,255,.85)',fontWeight:700}},h)));
+    card.appendChild(hdr);
+    (data.schedules[scheduleTeam]||[]).forEach((game,i)=>{
+      const row = el('div',{style:{display:'grid',gridTemplateColumns:'60px 1fr 150px 60px',gap:8,padding:'8px 16px',borderBottom:`1px solid ${C.border}`,alignItems:'center'}});
+      row.append(
+        el('div',{style:{fontSize:14,fontWeight:700,color:C.textLight}},String(game.week)),
+        inputEl(game.opponent, v=>{ const s=JSON.parse(JSON.stringify(data.schedules)); s[scheduleTeam][i].opponent=v; const nd={...data,schedules:s}; saveToDB('schedules',s); setState({data:nd}); }),
+        inputEl(game.result||'', v=>{ const s=JSON.parse(JSON.stringify(data.schedules)); s[scheduleTeam][i].result=v||null; const nd={...data,schedules:s}; saveToDB('schedules',s); setState({data:nd}); }, {placeholder:'W 35-21'}),
+        el('button',{style:{background:C.accentLight,border:`1px solid ${C.accentMid}`,color:C.accent,padding:'5px 8px',borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:700},onclick:()=>{ const s=JSON.parse(JSON.stringify(data.schedules)); s[scheduleTeam].splice(i,1); const nd={...data,schedules:s}; saveToDB('schedules',s); setState({data:nd}); }},'Del')
+      );
+      card.appendChild(row);
+    });
+    frag.appendChild(card);
+    frag.appendChild(el('button',{className:'btn-primary',style:{background:C.text},onclick:()=>{ const s=JSON.parse(JSON.stringify(data.schedules)); if(!s[scheduleTeam])s[scheduleTeam]=[]; s[scheduleTeam].push({week:(s[scheduleTeam].length||0)+1,opponent:'vs TBD',result:null}); s[scheduleTeam].sort((a,b)=>a.week-b.week); const nd={...data,schedules:s}; saveToDB('schedules',s); setState({data:nd}); }},'+ Add Week'));
+  }
+  return frag;
+}
+
+// ── Login modal ───────────────────────────────────────────────────
+function renderLoginModal(){
+  const backdrop = el('div',{className:'modal-backdrop',onclick:e=>{ if(e.target===backdrop) setState({showLogin:false,pwInput:'',pwError:false}); }});
+  const modal = el('div',{className:'modal'});
+  modal.appendChild(el('div',{style:{fontFamily:"'Syne',sans-serif",fontSize:20,fontWeight:700,marginBottom:4}},'Admin Login'));
+  modal.appendChild(el('div',{style:{fontSize:13,color:'#999',marginBottom:22}},'Enter your password to edit dynasty data'));
+  const pw = el('input',{className:'input',style:{width:'100%',padding:'11px 14px',fontSize:14,marginBottom:10,border:`1.5px solid ${state.pwError?'#CC1122':'#E8E6E0'}`,borderRadius:6},type:'password',placeholder:'Password'});
+  pw.value = state.pwInput;
+  pw.addEventListener('input',e=>{ state.pwInput=e.target.value; state.pwError=false; });
+  pw.addEventListener('keydown',e=>{ if(e.key==='Enter') tryLogin(); });
+  modal.appendChild(pw);
+  if(state.pwError) modal.appendChild(el('div',{style:{color:'#CC1122',fontSize:12,marginBottom:10}},'Incorrect password'));
+  const btns = el('div',{style:{display:'flex',gap:10}});
+  btns.append(
+    el('button',{className:'btn-primary',style:{flex:1,padding:11},onclick:tryLogin},'Login'),
+    el('button',{className:'btn-ghost',style:{flex:1,padding:11},onclick:()=>setState({showLogin:false,pwInput:'',pwError:false})},'Cancel')
+  );
+  modal.appendChild(btns);
+  backdrop.appendChild(modal);
+  setTimeout(()=>{ const inp=backdrop.querySelector('input[type=password]'); if(inp)inp.focus(); },50);
+  return backdrop;
+}
+
+function tryLogin(){
+  if(state.pwInput===ADMIN_PASSWORD){
+    setState({isAdmin:true,showLogin:false,pwInput:'',pwError:false,editGames:JSON.parse(JSON.stringify(state.data.weeklyGames)),editRankings:JSON.parse(JSON.stringify(state.data.cfpRankings)),editStandings:JSON.parse(JSON.stringify(state.data.conferences)),editWeek:state.data.week,editSeason:state.data.season});
+  } else { setState({pwError:true}); }
+}
+
+// ── Boot ──────────────────────────────────────────────────────────
+render();
+loadFromDB();
+</script>
+</body>
+</html>
